@@ -239,37 +239,48 @@ export const usePeer = () => {
 
       let offset = 0
       let chunkIndex = 0
+      const READ_SIZE = 1024 * 1024 * 4; // Read 4MB from disk at once
 
       while (offset < file.size) {
-        // Backpressure handling to avoid overflowing the WebRTC channel buffer
-        const channel = (peer as any)._channel as RTCDataChannel;
-        if (channel && channel.bufferedAmount > 1024 * 1024 * 2) { // 2MB threshold
-          await new Promise<void>(resolve => {
-            const checkBuffer = () => {
-              if (channel.bufferedAmount < 1024 * 1024) {
-                resolve();
-              } else {
-                setTimeout(checkBuffer, 50);
-              }
-            };
-            checkBuffer();
-          });
-        }
+        // Read 4MB slice from the file to reduce async I/O overhead
+        const sliceEnd = Math.min(offset + READ_SIZE, file.size);
+        const bigSlice = file.slice(offset, sliceEnd);
+        const bigBuffer = await bigSlice.arrayBuffer();
 
-        // Read file in chunks to prevent loading the entire file into RAM
-        const slice = file.slice(offset, offset + CHUNK_SIZE)
-        const chunk = await slice.arrayBuffer()
-        peer.send(chunk)
-        
-        offset += CHUNK_SIZE
-        chunkIndex++
-        
-        // Throttle progress updates
-        if (chunkIndex % 50 === 0 || offset >= file.size) {
-          const progress = Math.round((chunkIndex / meta.totalChunks) * 100)
-          setFileProgress(prev => prev.map(f =>
-            f.name === file.name ? { ...f, progress } : f
-          ))
+        let internalOffset = 0;
+
+        while (internalOffset < bigBuffer.byteLength) {
+          // Backpressure handling
+          const channel = (peer as any)._channel as RTCDataChannel;
+          if (channel && channel.bufferedAmount > 1024 * 1024 * 4) { // 4MB high-water mark
+            await new Promise<void>(resolve => {
+              const checkBuffer = () => {
+                if (channel.bufferedAmount < 1024 * 1024 * 1) { // 1MB low-water mark
+                  resolve();
+                } else {
+                  setTimeout(checkBuffer, 1); // 1ms poll instead of 50ms to minimize dead time
+                }
+              };
+              checkBuffer();
+            });
+          }
+
+          // Slice the 64KB chunk synchronously from our 4MB buffer
+          const chunkEnd = Math.min(internalOffset + CHUNK_SIZE, bigBuffer.byteLength);
+          const chunk = bigBuffer.slice(internalOffset, chunkEnd);
+          peer.send(chunk);
+          
+          internalOffset += CHUNK_SIZE;
+          offset += CHUNK_SIZE;
+          chunkIndex++;
+          
+          // Throttle progress updates (every ~12MB) to save CPU
+          if (chunkIndex % 200 === 0 || offset >= file.size) {
+            const progress = Math.round((chunkIndex / meta.totalChunks) * 100)
+            setFileProgress(prev => prev.map(f =>
+              f.name === file.name ? { ...f, progress } : f
+            ))
+          }
         }
       }
 
