@@ -152,7 +152,7 @@ export const usePeer = () => {
     })
 
     channel.bind('peer-joined', () => {
-      const peer = new SimplePeer({ initiator: true, trickle: false })
+      const peer = new SimplePeer({ initiator: true, trickle: true })
       peerRef.current = peer
       setupPeerEvents(peer)
 
@@ -199,7 +199,7 @@ export const usePeer = () => {
 
     channel.bind('signal', (signalData: any) => {
       if (!peerRef.current) {
-        const peer = new SimplePeer({ initiator: false, trickle: false })
+        const peer = new SimplePeer({ initiator: false, trickle: true })
         peerRef.current = peer
         setupPeerEvents(peer)
 
@@ -250,18 +250,28 @@ export const usePeer = () => {
         let internalOffset = 0;
 
         while (internalOffset < bigBuffer.byteLength) {
-          // Backpressure handling
+          // Backpressure handling using native WebRTC events instead of polling
           const channel = (peer as any)._channel as RTCDataChannel;
           if (channel && channel.bufferedAmount > 1024 * 1024 * 4) { // 4MB high-water mark
             await new Promise<void>(resolve => {
-              const checkBuffer = () => {
-                if (channel.bufferedAmount < 1024 * 1024 * 1) { // 1MB low-water mark
-                  resolve();
-                } else {
-                  setTimeout(checkBuffer, 1); // 1ms poll instead of 50ms to minimize dead time
-                }
+              channel.bufferedAmountLowThreshold = 1024 * 1024 * 1; // 1MB low-water mark
+              
+              let fallbackInterval: NodeJS.Timeout;
+              
+              const onLow = () => {
+                channel.removeEventListener('bufferedamountlow', onLow);
+                clearInterval(fallbackInterval);
+                resolve();
               };
-              checkBuffer();
+              
+              channel.addEventListener('bufferedamountlow', onLow);
+              
+              // Fallback just in case the event is dropped
+              fallbackInterval = setInterval(() => {
+                if (channel.bufferedAmount <= 1024 * 1024 * 1) {
+                  onLow();
+                }
+              }, 50);
             });
           }
 
