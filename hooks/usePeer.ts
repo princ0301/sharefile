@@ -99,8 +99,7 @@ export const usePeer = () => {
         if (!meta) return
         recvBufferRef.current.push(data)
         recvChunksRef.current++
-        
-        // Throttle progress updates to avoid freezing the UI thread on large files
+         
         if (recvChunksRef.current % 50 === 0 || recvChunksRef.current === meta.totalChunks) {
           const progress = Math.round((recvChunksRef.current / meta.totalChunks) * 100)
           setFileProgress(prev => prev.map(f =>
@@ -239,10 +238,9 @@ export const usePeer = () => {
 
       let offset = 0
       let chunkIndex = 0
-      const READ_SIZE = 1024 * 1024 * 4; // Read 4MB from disk at once
+      const READ_SIZE = 1024 * 1024 * 4;  
 
       while (offset < file.size) {
-        // Read 4MB slice from the file to reduce async I/O overhead
         const sliceEnd = Math.min(offset + READ_SIZE, file.size);
         const bigSlice = file.slice(offset, sliceEnd);
         const bigBuffer = await bigSlice.arrayBuffer();
@@ -250,7 +248,6 @@ export const usePeer = () => {
         let internalOffset = 0;
 
         while (internalOffset < bigBuffer.byteLength) {
-          // Backpressure handling using native WebRTC events instead of polling
           const channel = (peer as any)._channel as RTCDataChannel;
           if (channel && channel.bufferedAmount > 1024 * 1024 * 4) { // 4MB high-water mark
             await new Promise<void>(resolve => {
@@ -265,8 +262,7 @@ export const usePeer = () => {
               };
               
               channel.addEventListener('bufferedamountlow', onLow);
-              
-              // Fallback just in case the event is dropped
+               
               fallbackInterval = setInterval(() => {
                 if (channel.bufferedAmount <= 1024 * 1024 * 1) {
                   onLow();
@@ -274,8 +270,7 @@ export const usePeer = () => {
               }, 50);
             });
           }
-
-          // Slice the 64KB chunk synchronously from our 4MB buffer
+ 
           const chunkEnd = Math.min(internalOffset + CHUNK_SIZE, bigBuffer.byteLength);
           const chunk = bigBuffer.slice(internalOffset, chunkEnd);
           peer.send(chunk);
@@ -283,8 +278,7 @@ export const usePeer = () => {
           internalOffset += CHUNK_SIZE;
           offset += CHUNK_SIZE;
           chunkIndex++;
-          
-          // Throttle progress updates (every ~12MB) to save CPU
+           
           if (chunkIndex % 200 === 0 || offset >= file.size) {
             const progress = Math.round((chunkIndex / meta.totalChunks) * 100)
             setFileProgress(prev => prev.map(f =>
@@ -320,7 +314,6 @@ export const usePeer = () => {
   useEffect(() => {
     const handleUnload = () => {
       if (roomCodeRef.current) {
-        // We use navigator.sendBeacon as fetch might be cancelled on unload
         const blob = new Blob([JSON.stringify({
           channel: `private-room-${roomCodeRef.current}`,
           event: 'peer-left',
