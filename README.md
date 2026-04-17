@@ -1,6 +1,11 @@
-# Sharefile 🚀
+# Sharefile
 
 Sharefile is a fast, secure, and modern peer-to-peer (P2P) file-sharing web application. It allows you to send files directly from one device to another through your browser without ever uploading the files to a central cloud server. 
+
+<div align="center">
+  <img src="public/sender.jpeg" alt="Desktop View" width="700" />
+  <img src="public/receiver.png" alt="Mobile View" width="250" />
+</div>
 
 ## Features
 * **Direct P2P Transfer:** Files are transferred directly between peers via WebRTC. Your data never touches a storage server, maximizing privacy and speed.
