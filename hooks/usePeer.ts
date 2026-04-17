@@ -99,10 +99,14 @@ export const usePeer = () => {
         if (!meta) return
         recvBufferRef.current.push(data)
         recvChunksRef.current++
-        const progress = Math.round((recvChunksRef.current / meta.totalChunks) * 100)
-        setFileProgress(prev => prev.map(f =>
-          f.name === meta.name ? { ...f, progress } : f
-        ))
+        
+        // Throttle progress updates to avoid freezing the UI thread on large files
+        if (recvChunksRef.current % 50 === 0 || recvChunksRef.current === meta.totalChunks) {
+          const progress = Math.round((recvChunksRef.current / meta.totalChunks) * 100)
+          setFileProgress(prev => prev.map(f =>
+            f.name === meta.name ? { ...f, progress } : f
+          ))
+        }
       }
     })
 
@@ -233,21 +237,40 @@ export const usePeer = () => {
 
       peer.send(JSON.stringify({ type: 'meta', meta }))
 
-      const buffer = await file.arrayBuffer()
       let offset = 0
       let chunkIndex = 0
 
-      while (offset < buffer.byteLength) {
-        const chunk = buffer.slice(offset, offset + CHUNK_SIZE)
+      while (offset < file.size) {
+        // Backpressure handling to avoid overflowing the WebRTC channel buffer
+        const channel = (peer as any)._channel as RTCDataChannel;
+        if (channel && channel.bufferedAmount > 1024 * 1024 * 2) { // 2MB threshold
+          await new Promise<void>(resolve => {
+            const checkBuffer = () => {
+              if (channel.bufferedAmount < 1024 * 1024) {
+                resolve();
+              } else {
+                setTimeout(checkBuffer, 50);
+              }
+            };
+            checkBuffer();
+          });
+        }
+
+        // Read file in chunks to prevent loading the entire file into RAM
+        const slice = file.slice(offset, offset + CHUNK_SIZE)
+        const chunk = await slice.arrayBuffer()
         peer.send(chunk)
+        
         offset += CHUNK_SIZE
         chunkIndex++
-        const progress = Math.round((chunkIndex / meta.totalChunks) * 100)
-        setFileProgress(prev => prev.map(f =>
-          f.name === file.name ? { ...f, progress } : f
-        ))
-        // small delay to avoid overwhelming the channel buffer
-        await new Promise(r => setTimeout(r, 5))
+        
+        // Throttle progress updates
+        if (chunkIndex % 50 === 0 || offset >= file.size) {
+          const progress = Math.round((chunkIndex / meta.totalChunks) * 100)
+          setFileProgress(prev => prev.map(f =>
+            f.name === file.name ? { ...f, progress } : f
+          ))
+        }
       }
 
       peer.send(JSON.stringify({ type: 'done' }))
