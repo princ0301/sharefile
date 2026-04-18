@@ -38,7 +38,7 @@ export default function Home() {
   }
 
   const handleFiles = (files: File[]) => {
-    setSelectedFiles(files)
+    setSelectedFiles(prev => [...prev, ...files])
   }
 
   const handleSend = () => {
@@ -46,6 +46,7 @@ export default function Home() {
       return
 
     sendFiles(selectedFiles)
+    setSelectedFiles([])
   }
 
   const statusColor: Record<string, string> = {
@@ -106,15 +107,31 @@ export default function Home() {
                 />
 
                 {selectedFiles.length > 0 && status !== 'sending' && (
-                  <div>
-                    <p className="text-sm text-gray-500 mb-2">
-                      {selectedFiles.length} file(s) selected
-                    </p>
+                  <div className="flex flex-col gap-3">
+                    <div className="max-h-40 overflow-y-auto flex flex-col gap-2 p-2 bg-gray-50 rounded-xl border border-gray-100">
+                      {selectedFiles.map((file, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-2 bg-white rounded-lg shadow-sm border border-gray-100">
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-sm font-medium text-gray-700 truncate">{file.name}</span>
+                            <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                          </div>
+                          <button 
+                            onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-gray-400 hover:text-red-500 ml-2"
+                            title="Remove file"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                     <button
                       onClick={handleSend}
                       className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
                     >
-                      Send now
+                      Send {selectedFiles.length} file(s)
                     </button>
                   </div>
                 )}
