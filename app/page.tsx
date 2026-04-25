@@ -6,6 +6,8 @@ import ReceivedFiles from "@/components/ReceivedFiles"
 import RoomCode from "@/components/RoomCode"
 import { usePeer } from "@/hooks/usePeer"
 import { useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Send, Download, X, ArrowLeft } from "lucide-react"
 
 export default function Home() {
   const [mode, setMode] = useState<'home' | 'send' | 'receive'>('home')
@@ -49,170 +51,218 @@ export default function Home() {
     setSelectedFiles([])
   }
 
-  const statusColor: Record<string, string> = {
-    idle: 'bg-gray-200 text-gray-600',
-    connecting: 'bg-yellow-100 text-yellow-700',
-    connected: 'bg-green-100 text-green-700',
-    sending: 'bg-blue-100 text-blue-700',
-    receiving: 'bg-blue-100 text-blue-700',
-    done: 'bg-green-100 text-green-700',
-    error: 'bg-red-100 text-red-700',
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+    exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+    <main className="min-h-screen animated-gradient-bg flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-
+        
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Sharefile</h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            Share files directly - no cloud no, cable
+        <div className="text-center mb-10">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }} 
+            animate={{ scale: 1, opacity: 1 }} 
+            transition={{ duration: 0.5, type: "spring" }}
+            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 mb-4 shadow-[0_0_30px_rgba(79,70,229,0.3)]"
+          >
+            <Send className="w-8 h-8 text-white" />
+          </motion.div>
+          <h1 className="text-4xl font-bold text-white tracking-tight">Sharefile</h1>
+          <p className="text-white/60 mt-2 text-base">
+            Share files directly &middot; No cloud &middot; No limits
           </p>
         </div>
 
-        {/* Home screen */}
-        {mode === 'home' && (
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={handleSendMode}
-              className="w-full py-4 rounded-2xl bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 transition"
+        <AnimatePresence mode="wait">
+          {/* Home screen */}
+          {mode === 'home' && (
+            <motion.div 
+              key="home"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="flex flex-col gap-4"
             >
-              Send files
-            </button>
-            <button
-              onClick={() => setMode('receive')}
-              className="w-full py-4 rounded-2xl bg-white border border-gray-200 text-gray-800 font-semibold text-lg hover:bg-gray-50 transition"
+              <button
+                onClick={handleSendMode}
+                className="group relative w-full overflow-hidden rounded-2xl p-[1px]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-70 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-black/40 backdrop-blur-xl text-white font-semibold text-lg transition-all duration-300 group-hover:bg-black/20">
+                  <Send className="w-5 h-5 text-indigo-300" />
+                  Send files
+                </div>
+              </button>
+              
+              <button
+                onClick={() => setMode('receive')}
+                className="group relative w-full py-4 rounded-2xl glass-panel text-white font-semibold text-lg hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-3"
+              >
+                <Download className="w-5 h-5 text-purple-300" />
+                Receive files
+              </button>
+            </motion.div>
+          )}
+
+          {/* Send screen */}
+          {mode === 'send' && (
+            <motion.div 
+              key="send"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="glass-panel rounded-3xl p-6 flex flex-col gap-6"
             >
-              Receive files
-            </button>
-          </div>
-        )}
+              <div className="text-center">
+                <p className="text-sm font-medium text-white/50 mb-3 uppercase tracking-wider">
+                  Your Room Code
+                </p>
+                <RoomCode code={roomCode} />
+              </div>
 
-        {/* Send screen */}
-        {mode === 'send' && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col gap-5">
-            <div>
-              <p className="text-sm text-gray-500 mb-2">
-                Share this code with receiver
-              </p>
-              <RoomCode code={roomCode} />
-            </div>
+              {status === 'connected' || status === 'sending' || status === 'done' ? (
+                <div className="flex flex-col gap-5">
+                  <DropZone
+                    onFiles={handleFiles}
+                    disabled={status === 'sending'}
+                  />
 
-            {status === 'connected' || status === 'sending' || status === 'done' ? (
-              <>
-                <DropZone
-                  onFiles={handleFiles}
-                  disabled={status === 'sending'}
-                />
-
-                {selectedFiles.length > 0 && status !== 'sending' && (
-                  <div className="flex flex-col gap-3">
-                    <div className="max-h-40 overflow-y-auto flex flex-col gap-2 p-2 bg-gray-50 rounded-xl border border-gray-100">
-                      {selectedFiles.map((file, idx) => (
-                        <div key={idx} className="flex justify-between items-center p-2 bg-white rounded-lg shadow-sm border border-gray-100">
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-sm font-medium text-gray-700 truncate">{file.name}</span>
-                            <span className="text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-                          </div>
-                          <button 
-                            onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
-                            className="text-gray-400 hover:text-red-500 ml-2"
-                            title="Remove file"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      onClick={handleSend}
-                      className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                  {selectedFiles.length > 0 && status !== 'sending' && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="flex flex-col gap-3"
                     >
-                      Send {selectedFiles.length} file(s)
+                      <div className="max-h-48 overflow-y-auto pr-2 flex flex-col gap-2 custom-scrollbar">
+                        <AnimatePresence>
+                          {selectedFiles.map((file, idx) => (
+                            <motion.div 
+                              key={idx} 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, scale: 0.9 }}
+                              className="flex justify-between items-center p-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-colors"
+                            >
+                              <div className="flex flex-col overflow-hidden">
+                                <span className="text-sm font-medium text-white truncate">{file.name}</span>
+                                <span className="text-xs text-white/40">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                              </div>
+                              <button 
+                                onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                                className="text-white/40 hover:text-red-400 p-2 rounded-lg hover:bg-white/5 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                      <button
+                        onClick={handleSend}
+                        className="w-full py-4 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] hover:scale-[1.02] transition-all"
+                      >
+                        Send {selectedFiles.length} file(s)
+                      </button>
+                    </motion.div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    {fileProgress.map((f, i) => (
+                      <ProgressBar 
+                        key={i}
+                        filename={f.name}
+                        filesize={f.size}
+                        progress={f.progress}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-10 flex flex-col items-center justify-center">
+                  <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4" />
+                  <p className="text-white/60 text-sm">Waiting for receiver to join...</p>
+                </div>
+              )}
+
+              <button
+                onClick={() => { resetState(); setMode('home') }}
+                className="flex items-center justify-center gap-2 text-sm text-white/40 hover:text-white transition mt-2"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Home
+              </button>
+            </motion.div>
+          )}
+
+          {/* Receive screen */}
+          {mode === 'receive' && (
+            <motion.div 
+              key="receive"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="glass-panel rounded-3xl p-6 flex flex-col gap-6"
+            >
+              {status === 'idle' && (
+                <div>
+                  <p className="text-sm font-medium text-white/50 mb-3 uppercase tracking-wider text-center">Enter Room Code</p>
+                  <div className="flex flex-col gap-3">
+                    <input
+                      value={joinInput}
+                      onChange={e => setJoinInout(e.target.value.toUpperCase())}
+                      placeholder="e.g. AB12CD"
+                      maxLength={6}
+                      className="w-full text-center tracking-[0.2em] bg-black/20 border border-white/10 text-white text-2xl rounded-2xl px-4 py-4 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-white/20"
+                    />
+                    <button
+                      onClick={handleJoin}
+                      disabled={joinInput.length !== 6}
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(236,72,153,0.4)] transition-all"
+                    >
+                      Join Room
                     </button>
                   </div>
-                )}
-
-                {fileProgress.map((f, i) => (
-                  <ProgressBar 
-                    key={i}
-                    filename={f.name}
-                    filesize={f.size}
-                    progress={f.progress}
-                  />
-                ))}
-              </>
-            ) : (
-              <div className="text-center py-6 text-gray-400 text-sm">
-                Waiting for receiver to join
-              </div>
-            )}
-
-            <button
-              onClick={() => { resetState(); setMode('home') }}
-              className="text-sm text-gray-400 hover:text-gray-600 transition text-center"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-
-        {/* Receive screen */}
-        {mode === 'receive' && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col gap-5">
-
-            {status === 'idle' && (
-              <div>
-                <p className="text-sm text-gray-500 mb-2">Enter the room code</p>
-                <div className="flex gap-2">
-                  <input
-                    value={joinInput}
-                    onChange={e => setJoinInout(e.target.value.toUpperCase())}
-                    placeholder="e.g. AB12CD"
-                    maxLength={6}
-                    className="flex-1 font-mono text-lg border border-gray-200 rounded-xl px-4 py-2 focus:outline-none focus:border-blue-400"
-                  />
-                  <button
-                    onClick={handleJoin}
-                    className="px-5 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition"
-                  >
-                    Join
-                  </button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {status === 'connecting' && (
-              <div className="text-center py-6 text-gray-400 text-sm">
-                Connecting to sender...
-              </div>
-            )}
+              {status === 'connecting' && (
+                <div className="text-center py-10 flex flex-col items-center justify-center">
+                  <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4" />
+                  <p className="text-white/60 text-sm">Connecting to sender...</p>
+                </div>
+              )}
 
-            {(status === 'receiving' || status === 'done') && (
-              <>
-                {fileProgress.map((f, i) => (
-                  <ProgressBar
-                    key={i}
-                    filename={f.name}
-                    filesize={f.size}
-                    progress={f.progress}
-                  />
-                ))}
-                <ReceivedFiles files={receivedFiles} />
-              </>
-            )}
+              {(status === 'receiving' || status === 'done') && (
+                <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-2">
+                    {fileProgress.map((f, i) => (
+                      <ProgressBar
+                        key={i}
+                        filename={f.name}
+                        filesize={f.size}
+                        progress={f.progress}
+                      />
+                    ))}
+                  </div>
+                  <ReceivedFiles files={receivedFiles} />
+                </div>
+              )}
 
-            <button
-              onClick={() => setMode('home')}
-              className="text-sm text-gray-400 hover:text-gray-600 transition text-center"
-            >
-              Back
-            </button>
-          </div>
-        )}
+              <button
+                onClick={() => setMode('home')}
+                className="flex items-center justify-center gap-2 text-sm text-white/40 hover:text-white transition mt-2"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Home
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       </div>
     </main>

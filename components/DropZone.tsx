@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useRef, useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { UploadCloud } from "lucide-react"
 
 interface Props {
     onFiles: (files: File[]) => void
@@ -29,19 +31,29 @@ export default function DropZone({ onFiles, disabled }: Props) {
     }
 
     return (
-        <div
+        <motion.div
+            whileHover={!disabled ? { scale: 1.02 } : {}}
+            whileTap={!disabled ? { scale: 0.98 } : {}}
+            animate={{
+                borderColor: dragging ? 'rgba(129, 140, 248, 0.8)' : 'rgba(255, 255, 255, 0.2)',
+                backgroundColor: dragging ? 'rgba(79, 70, 229, 0.1)' : 'rgba(255, 255, 255, 0.05)'
+            }}
             onClick={() => !disabled && inputRef.current?.click()}
             onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
             onDragLeave={() => setDragging(false)}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all
-                ${dragging ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
-                ${disabled ? 'opacity-40 cursor-not-allowed' : ''}
+            className={`border-2 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center text-center cursor-pointer transition-colors
+                ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
             `}
         >
-            <div className="text-4xl mb-3">📂</div>
-            <p className="text-gray-600 font-medium">Click or drag files here</p>
-            <p className="text-gray-400 text-sm mt-1">Any file type supported</p>
+            <motion.div 
+                animate={{ y: dragging ? -5 : 0, scale: dragging ? 1.1 : 1 }}
+                className="w-16 h-16 rounded-full bg-indigo-500/20 flex items-center justify-center mb-4 text-indigo-400"
+            >
+                <UploadCloud className="w-8 h-8" />
+            </motion.div>
+            <p className="text-white font-medium text-lg">Click or drag files here</p>
+            <p className="text-white/50 text-sm mt-1">Any file type supported</p>
             <input
                 ref={inputRef}
                 type="file"
@@ -49,6 +61,6 @@ export default function DropZone({ onFiles, disabled }: Props) {
                 className="hidden"
                 onChange={handleChange}
             />
-        </div>
+        </motion.div>
     )
 }

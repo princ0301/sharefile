@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Copy, Check } from "lucide-react"
 
 interface Props {
     code: string
@@ -16,16 +18,37 @@ export default function RoomCode({ code }: Props) {
     }
 
     return (
-        <div className="flex items-center gap-3 bg-gray-100 rounded-xl px-4 py-3">
-            <span className="font-mono text-lg font-bold tracking-widest text-gray-800 flex-1">
+        <button
+            onClick={handleCopy}
+            className="group relative w-full flex items-center gap-4 bg-black/20 border border-white/10 hover:border-indigo-500/50 rounded-2xl px-6 py-4 transition-all hover:bg-black/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.2)]"
+        >
+            <span className="font-mono text-3xl font-bold tracking-[0.3em] text-white flex-1 text-center">
                 {code}
             </span>
-            <button
-                onClick={handleCopy}
-                className="text-sm px-4 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition text-gray-600"
-            >
-                {copied ? 'Copied!' : 'Copy'}
-            </button>
-        </div>
+            <div className="absolute right-4 w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/50 group-hover:text-white transition-colors">
+                <AnimatePresence mode="wait">
+                    {copied ? (
+                        <motion.div
+                            key="check"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0 }}
+                            className="text-emerald-400"
+                        >
+                            <Check className="w-5 h-5" />
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="copy"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0 }}
+                        >
+                            <Copy className="w-5 h-5" />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </button>
     )
 }
